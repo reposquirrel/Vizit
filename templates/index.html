@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vizit</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script defer src="/static/app.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <header class="app-header">
+          <div class="menu-root">
+            <button class="hamburger" id="hamburger" aria-haspopup="true" aria-expanded="false">
+              <span></span>
+              <span></span>
+              <span></span>
+            </button>
+            <div class="menu-panel" id="hamburger-menu" role="menu">
+              <button type="button" role="menuitem" id="open-configuration">Configuration</button>
+              <button type="button" role="menuitem" id="resume-prompt" style="display: none">Prompt to foreground</button>
+            </div>
+          </div>
+        </header>
+        <div class="tree" id="tree-root"></div>
+        <div class="sidebar-footer">
+          <button id="add-folder" class="action-button">+ Folder</button>
+          <button id="add-page" class="action-button ghost">+ Page</button>
+        </div>
+      </aside>
+      <section class="workspace" id="workspace">
+        <div class="page-content" id="page-content">
+          <div class="empty-state">
+            <h4>Select a page on the left</h4>
+            <p>The active page will fill this entire area.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+    <div class="context-menu" id="node-menu" role="menu">
+      <button type="button" id="rename-node" role="menuitem">Rename</button>
+      <button type="button" id="copy-node" role="menuitem">Copy</button>
+      <button type="button" id="update-node" role="menuitem">Update</button>
+      <button type="button" id="remove-node" role="menuitem">Remove</button>
+    </div>
+
+    <div class="modal" id="config-modal" aria-hidden="true">
+      <div class="modal-dialog" role="dialog" aria-modal="true">
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">Connectors</p>
+            <h3>Configuration</h3>
+          </div>
+          <button type="button" class="icon-button" id="close-config" aria-label="Close configuration">×</button>
+        </header>
+        <section class="modal-body">
+          <article class="connector-card">
+            <header>
+              <h4>Jira Cloud</h4>
+              <p>Provide the details Copilot needs to inspect Jira data.</p>
+            </header>
+            <form id="config-form" class="config-form">
+              <label>
+                Jira Site URL
+                <input type="url" name="siteUrl" placeholder="https://your-domain.atlassian.net" required />
+              </label>
+              <label>
+                Project Key
+                <input type="text" name="projectKey" placeholder="e.g. PROJECT" required />
+              </label>
+              <label>
+                Account Email / Username
+                <input type="email" name="accountEmail" placeholder="you@example.com" required />
+              </label>
+              <label>
+                API Token
+                <input type="password" name="apiKey" placeholder="Paste Jira API token" required />
+              </label>
+              <label>
+                Copilot Model
+                <select name="model" id="model-select">
+                  <option value="gpt-5.1-codex">gpt-5.1-codex (default)</option>
+                  <option value="gpt-5.1-codex-mini">gpt-5.1-codex-mini</option>
+                  <option value="gpt-5.1">gpt-5.1</option>
+                  <option value="gpt-5">gpt-5</option>
+                  <option value="gpt-5-mini">gpt-5-mini</option>
+                  <option value="gpt-4.1">gpt-4.1</option>
+                  <option value="claude-sonnet-4.5">claude-sonnet-4.5</option>
+                  <option value="claude-haiku-4.5">claude-haiku-4.5</option>
+                  <option value="claude-opus-4.5">claude-opus-4.5</option>
+                  <option value="claude-sonnet-4">claude-sonnet-4</option>
+                  <option value="gemini-3-pro-preview">gemini-3-pro-preview</option>
+                </select>
+              </label>
+              <label>
+                Max Copilot Attempts (1-10)
+                <input type="number" name="copilotMaxIterations" min="1" max="10" value="10" required />
+              </label>
+              <div class="form-actions">
+                <button type="button" class="ghost" id="test-config">Test connection</button>
+                <button type="button" class="ghost" id="cancel-config">Cancel</button>
+                <button type="submit" class="primary">Save Connector</button>
+              </div>
+              <p class="config-status" id="config-status" role="status"></p>
+            </form>
+          </article>
+        </section>
+      </div>
+    </div>
+
+    <div class="modal" id="prompt-modal" aria-hidden="true">
+      <div class="modal-dialog" role="dialog" aria-modal="true">
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">Space Prompt</p>
+            <h3>Describe what you need</h3>
+          </div>
+          <button type="button" class="icon-button" id="close-prompt" aria-label="Close prompt">×</button>
+        </header>
+        <section class="modal-body">
+          <div class="meta-block" id="prompt-metadata"></div>
+          <form id="prompt-form" class="config-form">
+            <label>
+              Prompt
+              <textarea id="prompt-input" rows="6" placeholder="Describe the visualization you want..."></textarea>
+            </label>
+            <div class="form-actions">
+              <button type="button" class="ghost" id="cancel-prompt">Cancel</button>
+              <button type="submit" class="primary">Generate</button>
+            </div>
+            <p class="config-status" id="prompt-status" role="status"></p>
+          </form>
+        </section>
+      </div>
+    </div>
+
+    <div class="modal" id="code-modal" aria-hidden="true">
+      <div class="modal-dialog" role="dialog" aria-modal="true">
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">Space Script</p>
+            <h3>Python Renderer</h3>
+          </div>
+          <button type="button" class="icon-button" id="close-code" aria-label="Close code view">×</button>
+        </header>
+        <section class="modal-body">
+          <form id="code-form" class="config-form">
+            <label>
+              Source
+              <textarea id="code-editor" rows="14" spellcheck="false"></textarea>
+            </label>
+            <div class="form-actions">
+              <button type="button" class="ghost" id="cancel-code">Cancel</button>
+              <button type="submit" class="primary">Save & Run</button>
+            </div>
+            <p class="config-status" id="code-status" role="status"></p>
+          </form>
+        </section>
+      </div>
+    </div>
+
+    <div class="modal" id="log-modal" aria-hidden="true">
+      <div class="modal-dialog" role="dialog" aria-modal="true">
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow" id="log-eyebrow">Execution Log</p>
+            <h3 id="log-title">Copilot Output</h3>
+          </div>
+          <button type="button" class="icon-button" id="close-log" aria-label="Close log">×</button>
+        </header>
+        <section class="modal-body">
+          <div class="log-pane">
+            <pre id="log-content"></pre>
+            <span class="log-scroll-indicator" id="log-scroll-indicator" aria-hidden="true"></span>
+          </div>
+          <div class="form-actions" id="log-actions">
+            <button type="button" class="ghost" id="log-secondary">Close</button>
+            <button type="button" class="ghost" id="log-background" style="display: none">Run in background</button>
+            <button type="button" class="primary" id="log-primary">Run update</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>
