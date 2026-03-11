@@ -31,13 +31,22 @@ flask --app app run --debug
 Open http://127.0.0.1:5000 and begin adding pages/spaces from the sidebar. 
 
 ## Screenshots
-
-![NewSpace](screenshots/NewSpace.png)
-
+Configure your system
 ![Configuration](screenshots/configuration.png)
 
+Give your prompt, what do you want to show
+![prompt](screenshots/prompt.png)
+
+The AI agent will start to generate the vizualization
+![prompt](screenshots/prompt.png)
+
+You can create multiple spaces, each space is a visualization
+![NewSpace](screenshots/NewSpace.png)
+
+You can organise your spaces how you want, free transform and move
 ![Moving](screenshots/move.png)
 
+When you evolve your visualization, you can go back and forward in versions
 ![Versions](screenshots/versions.png)
 
 ## License
