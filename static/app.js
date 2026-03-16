@@ -2821,6 +2821,7 @@ function renderSpaceCard(space, tabId, canvas) {
     const isOpen = menu.classList.contains("open");
     closeAllSpaceMenus();
     if (!isOpen) {
+      elevateSpaceCard(space.id, card);
       menu.classList.add("open");
     }
   });

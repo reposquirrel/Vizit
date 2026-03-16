@@ -26,6 +26,7 @@ WORKSPACE_BACKUP_FILE = WORKSPACE_FILE.with_suffix(".bak")
 SCRIPTS_DIR = BASE_DIR / "scripts"
 STATIC_DIR = BASE_DIR / "static"
 OUTPUT_DIR = STATIC_DIR / "spaces"
+LEGACY_STATIC_DIR = BASE_DIR.parent.parent / "GIT_REPO_SQUIRREL_VIZIT" / "static"
 CONNECTOR_CONFIG_FILE = BASE_DIR / "config.json"
 
 MIN_SPACE_HEIGHT = 200
@@ -98,6 +99,7 @@ def resolve_iteration_limit(connector: Optional[Dict[str, Any]], override: Optio
 
 
 def space_image_signature(space: Dict[str, Any]) -> Optional[Tuple[int, int]]:
+    migrate_legacy_space_image(space)
     path = space_image_path(space)
     if not path.exists():
         return None
@@ -107,6 +109,7 @@ def space_image_signature(space: Dict[str, Any]) -> Optional[Tuple[int, int]]:
 
 
 def png_rendered_since(space: Dict[str, Any], previous_signature: Optional[Tuple[int, int]]) -> bool:
+    migrate_legacy_space_image(space)
     path = space_image_path(space)
     if not path.exists():
         return False
@@ -123,6 +126,7 @@ def png_rendered_since(space: Dict[str, Any], previous_signature: Optional[Tuple
 
 
 def png_available(space: Dict[str, Any]) -> bool:
+    migrate_legacy_space_image(space)
     path = space_image_path(space)
     return path.exists() and path.stat().st_size > 0
 
@@ -504,6 +508,60 @@ def space_image_path(space: Dict[str, Any]) -> Path:
     if rel.is_absolute():
         return rel
     return (STATIC_DIR / rel).resolve()
+
+
+def legacy_space_image_path(space: Dict[str, Any]) -> Optional[Path]:
+    rel = Path(space.get("image_path", f"spaces/{space['id']}.png"))
+    if rel.is_absolute():
+        return rel
+    return (LEGACY_STATIC_DIR / rel).resolve()
+
+
+def _cleanup_empty_legacy_dirs(path: Path) -> None:
+    try:
+        legacy_root = LEGACY_STATIC_DIR.resolve()
+        current = path.resolve()
+    except OSError:
+        return
+    while current != legacy_root and current != current.parent:
+        try:
+            current.rmdir()
+        except OSError:
+            break
+        current = current.parent
+
+
+def migrate_legacy_space_image(space: Dict[str, Any]) -> bool:
+    try:
+        legacy_root = LEGACY_STATIC_DIR.resolve(strict=False)
+    except OSError:
+        return False
+    if not legacy_root.exists():
+        return False
+    legacy_path = legacy_space_image_path(space)
+    if not legacy_path or not legacy_path.exists():
+        return False
+    try:
+        legacy_path.resolve().relative_to(legacy_root)
+    except ValueError:
+        return False
+    target_path = space_image_path(space)
+    try:
+        if legacy_path.resolve() == target_path.resolve():
+            return False
+    except OSError:
+        pass
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.move(str(legacy_path), str(target_path))
+    except OSError:
+        try:
+            shutil.copy2(str(legacy_path), str(target_path))
+            legacy_path.unlink(missing_ok=True)
+        except OSError:
+            return False
+    _cleanup_empty_legacy_dirs(legacy_path.parent)
+    return True
 
 
 def delete_space_artifacts(space: Dict[str, Any]) -> None:
@@ -1004,6 +1062,7 @@ def run_space_script(space: Dict[str, Any]) -> Tuple[bool, str]:
  
     space["updated_at"] = datetime.utcnow().isoformat()
     space["last_run_output"] = message
+    migrate_legacy_space_image(space)
     return outcome, message
 
 
@@ -1335,6 +1394,7 @@ def duplicate_space_record(space: Dict[str, Any], tab_node: Dict[str, Any], pres
 
 
 def serialize_space(space: Dict[str, Any]) -> Dict[str, Any]:
+    migrate_legacy_space_image(space)
     payload = deepcopy(space)
     payload.setdefault("x", SPACE_CANVAS_PADDING)
     payload.setdefault("y", SPACE_CANVAS_PADDING)
