@@ -5,6 +5,7 @@ const pageContent = document.getElementById("page-content");
 const nodeMenu = document.getElementById("node-menu");
 const renameNodeBtn = document.getElementById("rename-node");
 const copyNodeBtn = document.getElementById("copy-node");
+const addSpaceBtn = document.getElementById("add-space");
 const updateNodeBtn = document.getElementById("update-node");
 const removeNodeBtn = document.getElementById("remove-node");
 const hamburgerMenu = document.getElementById("hamburger-menu");
@@ -488,10 +489,6 @@ async function copySpaceImageToClipboard(space) {
 function closeAllSpaceMenus() {
   document.querySelectorAll(".space-menu.open").forEach((menu) => menu.classList.remove("open"));
   document.querySelectorAll(".space-versions-list.open").forEach((list) => list.classList.remove("open"));
-}
-
-function closeAllPageMenus() {
-  document.querySelectorAll(".page-menu.open").forEach((menu) => menu.classList.remove("open"));
 }
 
 function collectAllTabs(nodes = state.tree, bucket = []) {
@@ -1154,6 +1151,9 @@ function showContextMenu(event, node) {
   if (copyNodeBtn) {
     copyNodeBtn.style.display = node.type === "tab" ? "block" : "none";
   }
+  if (addSpaceBtn) {
+    addSpaceBtn.style.display = node.type === "tab" ? "block" : "none";
+  }
   if (updateNodeBtn) {
     if (node.type === "tab") {
       updateNodeBtn.style.display = "block";
@@ -1283,6 +1283,16 @@ async function handleCopyNode() {
   } catch (error) {
     window.alert(error.message || "Unable to copy page.");
   }
+}
+
+async function handleAddSpaceRequest() {
+  if (!menuTargetId || menuTargetType !== "tab") {
+    hideContextMenu();
+    return;
+  }
+  const targetTabId = menuTargetId;
+  hideContextMenu();
+  await createSpace(targetTabId);
 }
 
 async function handleUpdateNode() {
@@ -2603,57 +2613,6 @@ function renderTabs() {
   panel.className = "page-panel";
   panel.dataset.pageId = String(livePage.id);
 
-  const pageMenuRoot = document.createElement("div");
-  pageMenuRoot.className = "page-menu-root";
-  const pageMenuButton = document.createElement("button");
-  pageMenuButton.type = "button";
-  pageMenuButton.className = "page-menu-button";
-  pageMenuButton.setAttribute("aria-label", "Page actions");
-  pageMenuButton.textContent = "≡";
-  const pageMenu = document.createElement("div");
-  pageMenu.className = "page-menu";
-
-  const addSpaceAction = document.createElement("button");
-  addSpaceAction.type = "button";
-  addSpaceAction.textContent = "Add space";
-  addSpaceAction.addEventListener("click", (event) => {
-    event.stopPropagation();
-    pageMenu.classList.remove("open");
-    closeAllPageMenus();
-    createSpace(livePage.id);
-  });
-  pageMenu.appendChild(addSpaceAction);
-
-  const copyPageAction = document.createElement("button");
-  copyPageAction.type = "button";
-  copyPageAction.textContent = "Copy page";
-  copyPageAction.addEventListener("click", async (event) => {
-    event.stopPropagation();
-    pageMenu.classList.remove("open");
-    closeAllPageMenus();
-    try {
-      await copyTabById(livePage.id);
-    } catch (error) {
-      window.alert(error.message || "Unable to copy page.");
-    }
-  });
-  pageMenu.appendChild(copyPageAction);
-
-  pageMenuRoot.appendChild(pageMenuButton);
-  pageMenuRoot.appendChild(pageMenu);
-
-  pageMenuButton.addEventListener("click", (event) => {
-    event.stopPropagation();
-    const isOpen = pageMenu.classList.contains("open");
-    closeAllSpaceMenus();
-    closeAllPageMenus();
-    if (!isOpen) {
-      pageMenu.classList.add("open");
-    }
-  });
-
-  panel.appendChild(pageMenuRoot);
-
   const reorderActive = Boolean(state.spaceMoveContext && state.spaceMoveContext.tabId === livePage.id);
   if (reorderActive) {
     const moveHint = document.createElement("p");
@@ -3013,6 +2972,9 @@ function setupEventListeners() {
   if (copyNodeBtn) {
     copyNodeBtn.addEventListener("click", handleCopyNode);
   }
+  if (addSpaceBtn) {
+    addSpaceBtn.addEventListener("click", handleAddSpaceRequest);
+  }
   if (updateNodeBtn) {
     updateNodeBtn.addEventListener("click", () => {
       handleUpdateNode();
@@ -3030,9 +2992,6 @@ function setupEventListeners() {
     if (!event.target.closest(".space-menu-root")) {
       closeAllSpaceMenus();
     }
-    if (!event.target.closest(".page-menu-root")) {
-      closeAllPageMenus();
-    }
     if (state.spaceMoveContext && !event.target.closest(".space-card")) {
       cancelSpaceMove();
     }
@@ -3046,7 +3005,6 @@ function setupEventListeners() {
       hideCodeModal();
       closeHamburgerMenu();
       closeAllSpaceMenus();
-      closeAllPageMenus();
       cancelSpaceMove();
     }
   });
@@ -3057,9 +3015,6 @@ function setupEventListeners() {
     }
     if (!event.target.closest(".space-menu-root")) {
       closeAllSpaceMenus();
-    }
-    if (!event.target.closest(".page-menu-root")) {
-      closeAllPageMenus();
     }
   });
 
