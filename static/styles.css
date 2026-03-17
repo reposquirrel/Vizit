@@ -755,6 +755,29 @@ body.space-resize-active .space-view {
   color: var(--text);
 }
 
+.space-info-list {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.space-info-list dt {
+  margin: 0 0 0.2rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.space-info-list dd {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text);
+  word-break: break-word;
+}
+
 .log-pane {
   position: relative;
   max-height: 60vh;

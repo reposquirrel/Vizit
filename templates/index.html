@@ -136,6 +136,51 @@
       </div>
     </div>
 
+    <div class="modal" id="space-info-modal" aria-hidden="true">
+      <div class="modal-dialog" role="dialog" aria-modal="true">
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">Space Details</p>
+            <h3>Information</h3>
+          </div>
+          <button type="button" class="icon-button" id="close-space-info" aria-label="Close space info">×</button>
+        </header>
+        <section class="modal-body">
+          <div class="meta-block" id="space-info-content">
+            <dl class="space-info-list">
+              <div>
+                <dt>Prompt</dt>
+                <dd id="space-info-prompt"></dd>
+              </div>
+              <div>
+                <dt>Script path</dt>
+                <dd id="space-info-script"></dd>
+              </div>
+              <div>
+                <dt>PNG path</dt>
+                <dd id="space-info-png"></dd>
+              </div>
+              <div>
+                <dt>Active version</dt>
+                <dd id="space-info-active"></dd>
+              </div>
+              <div>
+                <dt>Newer versions</dt>
+                <dd id="space-info-newer"></dd>
+              </div>
+              <div>
+                <dt>Older versions</dt>
+                <dd id="space-info-older"></dd>
+              </div>
+            </dl>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="ghost" id="dismiss-space-info">Close</button>
+          </div>
+        </section>
+      </div>
+    </div>
+ 
     <div class="modal" id="code-modal" aria-hidden="true">
       <div class="modal-dialog" role="dialog" aria-modal="true">
         <header class="modal-header">

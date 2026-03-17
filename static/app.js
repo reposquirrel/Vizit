@@ -42,6 +42,15 @@ const logPrimaryBtn = document.getElementById("log-primary");
 const logActions = document.getElementById("log-actions");
 const logBackgroundBtn = document.getElementById("log-background");
 const resumePromptBtn = document.getElementById("resume-prompt");
+const spaceInfoModal = document.getElementById("space-info-modal");
+const closeSpaceInfoBtn = document.getElementById("close-space-info");
+const dismissSpaceInfoBtn = document.getElementById("dismiss-space-info");
+const spaceInfoPrompt = document.getElementById("space-info-prompt");
+const spaceInfoScript = document.getElementById("space-info-script");
+const spaceInfoPng = document.getElementById("space-info-png");
+const spaceInfoActive = document.getElementById("space-info-active");
+const spaceInfoNewer = document.getElementById("space-info-newer");
+const spaceInfoOlder = document.getElementById("space-info-older");
 
 const DEFAULT_MODEL = "gpt-5.1-codex";
 const COPILOT_MODELS = [
@@ -484,6 +493,52 @@ async function copySpaceImageToClipboard(space) {
     console.error("Failed to copy image", error);
     window.alert(error.message || "Unable to copy image to clipboard.");
   }
+}
+
+function showSpaceInfo(space) {
+  if (!space || !spaceInfoModal) {
+    window.alert("Space details unavailable.");
+    return;
+  }
+  const prompt = space.last_prompt || space.prompt || "Not recorded";
+  const scriptPath = space.python_path || "Not generated";
+  const imagePath = space.image_path ? `/static/${space.image_path}` : space.image_url || "Not generated";
+  const versions = Array.isArray(space.versions) ? space.versions : [];
+  let activeIndex = versions.findIndex((version) => version && version.isActive);
+  if (activeIndex === -1 && versions.length) {
+    activeIndex = versions.length - 1;
+  }
+  const activeVersion = activeIndex >= 0 ? versions[activeIndex] : null;
+  const activeLabel = activeVersion ? (activeVersion.label || activeVersion.createdAt || activeVersion.id || "Version") : "None";
+  const newerCount = activeIndex >= 0 ? Math.max(versions.length - activeIndex - 1, 0) : 0;
+  const olderCount = activeIndex > 0 ? activeIndex : Math.max(versions.length - 1, 0);
+  const assign = (node, value) => {
+    if (node) {
+      node.textContent = value;
+    }
+  };
+  assign(spaceInfoPrompt, prompt);
+  assign(spaceInfoScript, scriptPath);
+  assign(spaceInfoPng, imagePath);
+  assign(spaceInfoActive, activeLabel);
+  assign(spaceInfoNewer, String(newerCount));
+  assign(spaceInfoOlder, String(olderCount));
+  spaceInfoModal.dataset.spaceId = space.id || "";
+  spaceInfoModal.classList.add("visible");
+  spaceInfoModal.setAttribute("aria-hidden", "false");
+  setTimeout(() => {
+    if (closeSpaceInfoBtn) {
+      closeSpaceInfoBtn.focus();
+    }
+  }, 0);
+}
+
+function hideSpaceInfoModal() {
+  if (!spaceInfoModal) {
+    return;
+  }
+  spaceInfoModal.classList.remove("visible");
+  spaceInfoModal.setAttribute("aria-hidden", "true");
 }
 
 function closeAllSpaceMenus() {
@@ -2697,6 +2752,7 @@ function renderSpaceCard(space, tabId, canvas) {
   menu.className = "space-menu";
 
   const actions = [
+    { label: "Info", handler: () => showSpaceInfo(space) },
     { label: "Move", handler: () => activateSpaceMove(space.id, tabId) },
     { label: "Prompt", handler: () => showPromptModalForSpace(space, tabId) },
     { label: "Update", handler: () => runUpdateAndShow(space.id) },
@@ -2951,6 +3007,12 @@ function setupEventListeners() {
   if (logBackgroundBtn) {
     logBackgroundBtn.addEventListener("click", handleRunPromptInBackground);
   }
+  if (closeSpaceInfoBtn) {
+    closeSpaceInfoBtn.addEventListener("click", hideSpaceInfoModal);
+  }
+  if (dismissSpaceInfoBtn) {
+    dismissSpaceInfoBtn.addEventListener("click", hideSpaceInfoModal);
+  }
   logPrimaryBtn.addEventListener("click", async () => {
     const action = logPrimaryAction;
     hideLogModal();
@@ -3003,6 +3065,7 @@ function setupEventListeners() {
       hideConfigModal();
       hidePromptModal();
       hideCodeModal();
+      hideSpaceInfoModal();
       closeHamburgerMenu();
       closeAllSpaceMenus();
       cancelSpaceMove();
