@@ -52,22 +52,11 @@ const spaceInfoActive = document.getElementById("space-info-active");
 const spaceInfoNewer = document.getElementById("space-info-newer");
 const spaceInfoOlder = document.getElementById("space-info-older");
 
-const DEFAULT_MODEL = "gpt-5.1-codex";
-const COPILOT_MODELS = [
-  "gpt-5.1-codex",
-  "gpt-5.1-codex-mini",
-  "gpt-5.1",
-  "gpt-5",
-  "gpt-5-mini",
-  "gpt-4.1",
-  "claude-sonnet-4.5",
-  "claude-haiku-4.5",
-  "claude-opus-4.5",
-  "claude-sonnet-4",
-  "gemini-3-pro-preview",
-];
+let DEFAULT_MODEL = "gpt-5.1-codex";
+let COPILOT_MODELS = [];
 const MAX_ITERATION_CAP = 10;
 const DEFAULT_MAX_ITERATIONS = 10;
+const DEFAULT_UPDATE_DELAY_SECONDS = 0;
 const CONNECTOR_DEFAULTS = Object.freeze({
   siteUrl: "",
   projectKey: "",
@@ -75,6 +64,7 @@ const CONNECTOR_DEFAULTS = Object.freeze({
   apiKey: "",
   model: DEFAULT_MODEL,
   copilotMaxIterations: DEFAULT_MAX_ITERATIONS,
+  updateDelaySeconds: DEFAULT_UPDATE_DELAY_SECONDS,
 });
 
 function normalizeSiteUrl(value) {
@@ -110,6 +100,14 @@ function normalizeIterationLimit(value) {
   return Math.min(MAX_ITERATION_CAP, Math.max(1, parsed));
 }
 
+function normalizeUpdateDelay(value) {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) {
+    return DEFAULT_UPDATE_DELAY_SECONDS;
+  }
+  return Math.max(0, parsed);
+}
+
 let connectorCache = null;
 let connectorFetchPromise = null;
 
@@ -125,6 +123,20 @@ function setConnectorSnapshot(payload) {
   return connectorCache;
 }
 
+function populateModelSelect() {
+  const select = document.getElementById("model-select");
+  if (!select || !COPILOT_MODELS.length) {
+    return;
+  }
+  select.innerHTML = "";
+  for (const model of COPILOT_MODELS) {
+    const opt = document.createElement("option");
+    opt.value = model;
+    opt.textContent = model === DEFAULT_MODEL ? `${model} (default)` : model;
+    select.appendChild(opt);
+  }
+}
+
 async function fetchConnectorConfig({ force = false } = {}) {
   if (connectorFetchPromise && !force) {
     return connectorFetchPromise;
@@ -136,6 +148,13 @@ async function fetchConnectorConfig({ force = false } = {}) {
         throw new Error(`Unable to load configuration (${response.status})`);
       }
       const result = await response.json();
+      if (Array.isArray(result.copilotModels) && result.copilotModels.length) {
+        COPILOT_MODELS = result.copilotModels;
+      }
+      if (result.defaultCopilotModel) {
+        DEFAULT_MODEL = result.defaultCopilotModel;
+      }
+      populateModelSelect();
       return setConnectorSnapshot(result.connector || {});
     } catch (error) {
       console.warn("Unable to load connector config", error);
@@ -260,6 +279,7 @@ function resolveConnectorDefaults(raw) {
     apiKey: (source.apiKey || "").trim(),
     model: source.model && COPILOT_MODELS.includes(source.model) ? source.model : DEFAULT_MODEL,
     copilotMaxIterations: normalizeIterationLimit(source.copilotMaxIterations),
+    updateDelaySeconds: normalizeUpdateDelay(source.updateDelaySeconds),
   };
   if (source.updatedAt) {
     resolved.updatedAt = source.updatedAt;
@@ -403,6 +423,9 @@ function populateConnectorForm() {
   if (configForm.copilotMaxIterations) {
     configForm.copilotMaxIterations.value = saved.copilotMaxIterations ?? DEFAULT_MAX_ITERATIONS;
   }
+  if (configForm.updateDelaySeconds) {
+    configForm.updateDelaySeconds.value = saved.updateDelaySeconds ?? DEFAULT_UPDATE_DELAY_SECONDS;
+  }
 }
 
 function buildConnectorPayload(formData) {
@@ -413,6 +436,7 @@ function buildConnectorPayload(formData) {
     apiKey: (formData.get("apiKey") || "").trim(),
     model: formData.get("model") || DEFAULT_MODEL,
     copilotMaxIterations: (formData.get("copilotMaxIterations") || "").toString().trim(),
+    updateDelaySeconds: (formData.get("updateDelaySeconds") || "").toString().trim(),
   };
 }
 
@@ -493,6 +517,19 @@ async function copySpaceImageToClipboard(space) {
     console.error("Failed to copy image", error);
     window.alert(error.message || "Unable to copy image to clipboard.");
   }
+}
+
+function openSpaceImageInBrowser(space) {
+  if (!space) {
+    window.alert("Space data missing");
+    return;
+  }
+  const rawPath = space.image_url || (space.image_path ? `/static/${space.image_path}` : null);
+  if (!rawPath) {
+    window.alert("This space does not have an image yet.");
+    return;
+  }
+  window.open(getSpaceImageUrl(space), "_blank", "noopener");
 }
 
 function showSpaceInfo(space) {
@@ -1611,10 +1648,17 @@ async function runTabSequentialUpdate(tabId) {
   renderTabs();
   const failures = [];
   let unexpectedError = null;
+  const delayMs = (getConnectorSnapshot().updateDelaySeconds || 0) * 1000;
   try {
-    for (const item of queue) {
+    for (let qi = 0; qi < queue.length; qi++) {
+      const item = queue[qi];
       if (!pendingSpaceUpdates.has(item.id)) {
         continue;
+      }
+      if (qi > 0 && delayMs > 0) {
+        spaceUpdateMessages.set(item.id, "Waiting...");
+        renderTabs();
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
       spaceUpdateMessages.set(item.id, "Updating...");
       renderTabs();
@@ -2760,6 +2804,7 @@ function renderSpaceCard(space, tabId, canvas) {
     { label: "Copy to page", handler: () => copySpaceToTab(space.id) },
     { label: "Code", handler: () => showCodeModalForSpace(space.id, tabId) },
     { label: "Copy to clipboard", handler: () => copySpaceImageToClipboard(space) },
+    { label: "Open in browser", handler: () => openSpaceImageInBrowser(space) },
     { label: "Remove", handler: () => removeSpace(space.id) },
   ];
 

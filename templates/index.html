@@ -81,22 +81,15 @@
               <label>
                 Copilot Model
                 <select name="model" id="model-select">
-                  <option value="gpt-5.1-codex">gpt-5.1-codex (default)</option>
-                  <option value="gpt-5.1-codex-mini">gpt-5.1-codex-mini</option>
-                  <option value="gpt-5.1">gpt-5.1</option>
-                  <option value="gpt-5">gpt-5</option>
-                  <option value="gpt-5-mini">gpt-5-mini</option>
-                  <option value="gpt-4.1">gpt-4.1</option>
-                  <option value="claude-sonnet-4.5">claude-sonnet-4.5</option>
-                  <option value="claude-haiku-4.5">claude-haiku-4.5</option>
-                  <option value="claude-opus-4.5">claude-opus-4.5</option>
-                  <option value="claude-sonnet-4">claude-sonnet-4</option>
-                  <option value="gemini-3-pro-preview">gemini-3-pro-preview</option>
                 </select>
               </label>
               <label>
                 Max Copilot Attempts (1-10)
                 <input type="number" name="copilotMaxIterations" min="1" max="10" value="10" required />
+              </label>
+              <label>
+                Update Delay Between Spaces (seconds)
+                <input type="number" name="updateDelaySeconds" min="0" step="0.1" value="0" />
               </label>
               <div class="form-actions">
                 <button type="button" class="ghost" id="test-config">Test connection</button>

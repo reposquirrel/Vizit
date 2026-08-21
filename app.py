@@ -37,22 +37,80 @@ DEFAULT_SPACE_WIDTH = 420
 SPACE_CANVAS_PADDING = 24
 SPACE_VERTICAL_GAP = 32
 
-ALLOWED_COPILOT_MODELS = {
-    "claude-sonnet-4.5",
-    "claude-haiku-4.5",
-    "claude-opus-4.5",
-    "claude-sonnet-4",
-    "gpt-5",
-    "gpt-5.1",
-    "gpt-5.1-codex-mini",
+DEFAULT_COPILOT_MODEL = "gpt-5.1-codex"
+
+_FALLBACK_COPILOT_MODELS = [
+    "gpt-5.5",
+    "gpt-5.4",
+    "gpt-5.4-mini",
+    "gpt-5.4-nano",
+    "gpt-5.3-codex",
+    "gpt-5.2-codex",
+    "gpt-5.2",
     "gpt-5.1-codex",
+    "gpt-5.1-codex-max",
+    "gpt-5.1-codex-mini",
+    "gpt-5.1",
+    "gpt-5-codex",
+    "gpt-5",
     "gpt-5-mini",
     "gpt-4.1",
+    "claude-opus-4.7",
+    "claude-opus-4.6",
+    "claude-sonnet-4.6",
+    "claude-sonnet-4.5",
+    "claude-sonnet-4",
+    "claude-haiku-4.5",
+    "gemini-3.1-pro-preview",
     "gemini-3-pro-preview",
-}
-DEFAULT_COPILOT_MODEL = "gpt-5.1-codex"
+    "gemini-2.5-pro",
+]
+
+
+def _discover_copilot_models() -> List[str]:
+    """Extract available model names from the copilot CLI installation."""
+    import glob
+
+    search_paths = glob.glob(
+        "/snap/copilot-cli/*/lib/node_modules/copilot-wrapper/"
+        "node_modules/@github/copilot/sdk/index.js"
+    )
+    if not search_paths:
+        return list(_FALLBACK_COPILOT_MODELS)
+
+    sdk_path = sorted(search_paths)[-1]
+    try:
+        content = Path(sdk_path).read_text(errors="ignore")
+    except OSError:
+        return list(_FALLBACK_COPILOT_MODELS)
+
+    pattern = re.compile(
+        r'"((?:gpt-[a-z0-9.-]+|claude-[a-z0-9.-]+|gemini-[a-z0-9.-]+))"'
+    )
+    raw = set(pattern.findall(content))
+
+    skip = re.compile(
+        r"latest|internal|copilot|capi|personal|instant|mythos"
+        r"|20\d{6}|\d{4}-\d{2}-\d{2}"
+        r"|claude-[12]\.|claude-3-|gpt-4o|gpt-4(?!\.)"
+        r"|claude-(?:opus|sonnet)-4-\d+$"
+        r"|-1m|-fast|-high|-xhigh|-max"
+    )
+    models = sorted(
+        (m for m in raw if not skip.search(m)),
+        key=lambda m: (
+            0 if m.startswith("gpt") else 1 if m.startswith("claude") else 2,
+            m,
+        ),
+    )
+    return models if models else list(_FALLBACK_COPILOT_MODELS)
+
+
+COPILOT_MODELS_ORDERED: List[str] = _discover_copilot_models()
+ALLOWED_COPILOT_MODELS: Set[str] = set(COPILOT_MODELS_ORDERED)
 MAX_COPILOT_ITERATIONS = 10
 DEFAULT_COPILOT_ITERATIONS = MAX_COPILOT_ITERATIONS
+DEFAULT_UPDATE_DELAY_SECONDS = 0
 DEFAULT_CONNECTOR_CONFIG = {
     "siteUrl": "",
     "projectKey": "",
@@ -60,6 +118,7 @@ DEFAULT_CONNECTOR_CONFIG = {
     "apiKey": "",
     "model": DEFAULT_COPILOT_MODEL,
     "copilotMaxIterations": DEFAULT_COPILOT_ITERATIONS,
+    "updateDelaySeconds": DEFAULT_UPDATE_DELAY_SECONDS,
 }
 MAX_EXISTING_SCRIPT_CONTEXT_CHARS = 6000
 VERSION_LABEL_FORMAT = "%Y-%m-%d %H:%M:%S UTC"
@@ -88,6 +147,14 @@ def coerce_iteration_limit(value: Any) -> int:
     except (TypeError, ValueError):
         return DEFAULT_COPILOT_ITERATIONS
     return max(1, min(MAX_COPILOT_ITERATIONS, limit))
+
+
+def coerce_update_delay(value: Any) -> float:
+    try:
+        delay = float(value)
+    except (TypeError, ValueError):
+        return DEFAULT_UPDATE_DELAY_SECONDS
+    return max(0.0, delay)
 
 
 def resolve_iteration_limit(connector: Optional[Dict[str, Any]], override: Optional[Any] = None) -> int:
@@ -214,6 +281,7 @@ def normalize_connector_payload(payload: Optional[Dict[str, Any]]) -> Dict[str, 
             "accountEmail": account_email,
             "apiKey": api_key,
             "copilotMaxIterations": coerce_iteration_limit(payload.get("copilotMaxIterations")),
+            "updateDelaySeconds": coerce_update_delay(payload.get("updateDelaySeconds")),
         }
     )
     if payload.get("updatedAt"):
@@ -1883,7 +1951,11 @@ def delete_node(node_id: str):
 @app.get("/api/config")
 def read_connector_config():
     connector = load_connector_config()
-    return jsonify({"connector": connector})
+    return jsonify({
+        "connector": connector,
+        "copilotModels": COPILOT_MODELS_ORDERED,
+        "defaultCopilotModel": DEFAULT_COPILOT_MODEL,
+    })
 
 
 @app.post("/api/config")
